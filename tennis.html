@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Теннисный матч — счётчик</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --court: #0a1628;
+    --court-dark: #040a14;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --accent-glow: #2563eb;
+    --gold: #fbbf24;
+    --gold-dim: #f59e0b;
+    --panel: rgba(4, 10, 20, .88);
+    --text-blue: #93c5fd;
+    --text-dim: #64748b;
+    --green: #34d399;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+    --orange: #fb923c;
+  }
+
+  body {
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-x: hidden;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(59,130,246,.06), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(0,0,0,.5), transparent 50%),
+      linear-gradient(135deg, var(--court) 0%, var(--court-dark) 100%);
+  }
+
+  /* Сетка на фоне */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(59,130,246,.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(59,130,246,.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: .6;
+  }
+
+  /* ---------- Экран настройки ---------- */
+  .setup {
+    background: var(--panel);
+    border: 1px solid rgba(59,130,246,.18);
+    border-radius: 24px;
+    padding: 40px 44px;
+    width: min(460px, 92vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(59,130,246,.05);
+    backdrop-filter: blur(12px);
+    text-align: center;
+    animation: fadeIn .5s ease;
+  }
+  .setup h1 { font-size: 28px; margin-bottom: 4px; letter-spacing: 1px; }
+  .setup h1 span { color: var(--accent-light); }
+  .setup p  { color: var(--text-blue); margin-bottom: 28px; font-size: 14px; opacity: .8; }
+
+  .field { text-align: left; margin-bottom: 20px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-blue);
+    margin-bottom: 8px;
+    opacity: .7;
+  }
+  .field input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(59,130,246,.2);
+    background: rgba(0,0,0,.4);
+    color: #fff;
+    font-size: 17px;
+    outline: none;
+    transition: border .25s, box-shadow .25s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.15), 0 0 20px rgba(59,130,246,.08);
+  }
+
+  .setup-row { display: flex; gap: 16px; margin-bottom: 8px; }
+  .setup-row .field { flex: 1; margin-bottom: 0; }
+
+  .format-select { margin: 22px 0 28px; text-align: left; }
+  .format-select label {
+    display: block; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--text-blue); margin-bottom: 8px; opacity: .7;
+  }
+  .format-select select {
+    width: 100%; padding: 13px 16px; border-radius: 12px;
+    border: 1px solid rgba(59,130,246,.2); background: rgba(0,0,0,.4);
+    color: #fff; font-size: 16px; outline: none; cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2360a5fa' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+  }
+
+  .btn-start {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #1d4ed8);
+    color: #fff;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(59,130,246,.35);
+    transition: transform .15s, box-shadow .25s;
+    letter-spacing: .5px;
+  }
+  .btn-start:hover { box-shadow: 0 8px 30px rgba(59,130,246,.5); transform: translateY(-1px); }
+  .btn-start:active { transform: scale(.97); }
+
+  /* ---------- Экран матча ---------- */
+  .match { display: none; width: min(800px, 96vw); animation: fadeIn .5s ease; }
+  .match.active { display: block; }
+
+  .match-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 4px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .match-title {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 12px;
+    color: var(--gold);
+    opacity: .85;
+  }
+  .match-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: .5px;
+    flex-wrap: wrap;
+  }
+  .match-stats span { color: var(--text-blue); }
+  .match-stats .stat-item { display: flex; align-items: center; gap: 4px; }
+  .match-stats .stat-dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  }
+  .stat-dot.green { background: var(--green); }
+  .stat-dot.red { background: var(--red); }
+
+  /* --- Match info bar --- */
+  .match-info-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1px solid rgba(59,130,246,.08);
+    border-radius: 12px;
+    flex-wrap: wrap;
+  }
+  .match-info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .match-info-item .info-icon { font-size: 14px; opacity: .6; }
+  .match-info-item .info-value {
+    color: var(--text-blue);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .match-info-item .info-value.gold { color: var(--gold); }
+  .match-info-item .info-value.green { color: var(--green); }
+  .match-info-item .info-value.red { color: var(--red); }
+
+  /* ТВ-табло */
+  .board {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 30px rgba(59,130,246,.06);
+    border: 1px solid rgba(59,130,246,.1);
+  }
+
+  .board-head {
+    display: grid;
+    grid-template-columns: 46px 1fr 70px 70px 96px;
+    background: rgba(0,0,0,.6);
+    padding: 10px 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-blue);
+    align-items: center;
+    opacity: .7;
+  }
+  .board-head div { text-align: center; }
+  .board-head .h-name { text-align: left; padding-left: 8px; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 46px 1fr 70px 70px 96px;
+    align-items: center;
+    padding: 14px 0;
+    background: linear-gradient(90deg, rgba(10,22,40,.92), rgba(4,10,20,.92));
+    position: relative;
+    transition: background .3s;
+    border-top: 1px solid rgba(59,130,246,.06);
+  }
+  .row:nth-child(3) { background: linear-gradient(90deg, rgba(8,18,34,.92), rgba(3,8,16,.92)); }
+  .row.serving { box-shadow: inset 4px 0 0 var(--accent); }
+  .row.serving::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-glow));
+    box-shadow: 0 0 12px rgba(59,130,246,.4);
+  }
+  .row.winner-row {
+    background: linear-gradient(90deg, rgba(251,191,36,.12), rgba(251,191,36,.05));
+    border-top: 1px solid rgba(251,191,36,.15);
+  }
+  .row.server-change {
+    animation: serverFlash .4s ease;
+  }
+  @keyframes serverFlash {
+    0%, 100% { background: linear-gradient(90deg, rgba(10,22,40,.92), rgba(4,10,20,.92)); }
+    50% { background: linear-gradient(90deg, rgba(59,130,246,.2), rgba(59,130,246,.08)); }
+  }
+
+  .serve-cell { display: flex; justify-content: center; align-items: center; }
+  .ball {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #93c5fd, #3b82f6);
+    box-shadow: 0 0 12px rgba(59,130,246,.8);
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  .serving .ball { opacity: 1; }
+
+  .name-cell {
+    padding-left: 8px;
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .flag {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #1e40af);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff; flex: none;
+    box-shadow: 0 0 8px rgba(59,130,246,.2);
+  }
+  .flag.winner-flag { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 12px rgba(251,191,36,.4); }
+
+  .cell {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+  }
+  .cell.sets  { color: var(--gold); }
+  .cell.games { color: var(--text-blue); }
+  .cell.points {
+    background: rgba(0,0,0,.4);
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 22px;
+    color: #fff;
+    border-radius: 8px;
+    margin: 0 6px;
+    position: relative;
+  }
+
+  .digit-img { height: 26px; vertical-align: middle; margin: 0 1px; filter: drop-shadow(0 0 4px rgba(59,130,246,.15)); }
+  .point-img { height: 28px; vertical-align: middle; filter: drop-shadow(0 0 4px rgba(59,130,246,.1)); }
+  .num       { font-variant-numeric: tabular-nums; }
+
+  /* Critical situation badges */
+  .situation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin: 0 2px;
+    animation: badgePulse 1s ease-in-out infinite;
+    line-height: 1.2;
+  }
+  .situation-badge.mp {
+    background: rgba(251,191,36,.2);
+    color: var(--gold);
+    border: 1px solid rgba(251,191,36,.4);
+  }
+  .situation-badge.sp {
+    background: rgba(59,130,246,.2);
+    color: var(--accent-light);
+    border: 1px solid rgba(59,130,246,.4);
+  }
+  .situation-badge.bp {
+    background: rgba(248,113,113,.2);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,.4);
+  }
+  @keyframes badgePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .7; transform: scale(1.08); }
+  }
+
+  /* Game score display in info bar */
+  .game-score-display {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-blue);
+    background: rgba(0,0,0,.3);
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: .5px;
+  }
+  .game-score-display .gs-sep { color: var(--text-dim); font-weight: 300; }
+
+  /* Тай-брейк баннер */
+  .tiebreak-banner {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: linear-gradient(90deg, transparent, rgba(59,130,246,.12), transparent);
+    border-top: 1px solid rgba(59,130,246,.2);
+  }
+  .tiebreak-banner.show { display: flex; }
+  .tiebreak-banner img { height: 20px; vertical-align: middle; }
+  .tb-score-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gold);
+    opacity: .8;
+  }
+  .tb-live-score {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0,0,0,.4);
+    padding: 3px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tb-live-score .digit-img { height: 18px; }
+  .tb-sep { color: var(--text-dim); font-weight: 300; }
+
+  /* История сетов */
+  .set-history {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-left: auto;
+    padding-right: 4px;
+  }
+  .set-history-item {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    background: rgba(0,0,0,.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: .5px;
+  }
+  .set-history-item.won { color: var(--gold); background: rgba(251,191,36,.1); }
+
+  /* Победитель */
+  .winner-msg {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--gold);
+    min-height: 30px;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 16px rgba(0,0,0,.5), 0 0 30px rgba(251,191,36,.1);
+    animation: winnerPulse 2s ease-in-out infinite;
+  }
+  .winner-msg .winner-digit-img { height: 24px; vertical-align: middle; margin: 0 2px; }
+  @keyframes winnerPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .85; }
+  }
+
+  /* Confetti */
+  .confetti-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 1000;
+  }
+  .confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Кнопки управления */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    cursor: pointer; border: none; border-radius: 12px;
+    padding: 14px 22px; font-size: 15px; font-weight: 700;
+    transition: transform .12s, box-shadow .2s, background .2s, opacity .2s;
+    letter-spacing: .3px;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+  }
+  .btn:active { transform: scale(.95); }
+  .btn:disabled { cursor: not-allowed; }
+  .btn-p1 {
+    background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+    color:#fff;
+    box-shadow: 0 4px 16px rgba(59,130,246,.3);
+  }
+  .btn-p1:hover { box-shadow: 0 6px 24px rgba(59,130,246,.45); }
+  .btn-p2 {
+    background: linear-gradient(135deg,#60a5fa,#2563eb);
+    color:#fff;
+    box-shadow: 0 4px 16px rgba(96,165,250,.3);
+  }
+  .btn-p2:hover { box-shadow: 0 6px 24px rgba(96,165,250,.45); }
+  .btn-undo  { background: rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15); }
+  .btn-undo:hover { background: rgba(255,255,255,.14); }
+  .btn-reset { background: rgba(239,68,68,.15); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+  .btn-reset:hover { background: rgba(239,68,68,.25); }
+  .btn-new   { background: rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15); }
+  .btn-new:hover { background: rgba(255,255,255,.14); }
+  .btn-sound {
+    background: rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15);
+    font-size: 18px; padding: 14px 18px; line-height: 1;
+    min-width: 50px;
+  }
+  .btn-sound:hover { background: rgba(255,255,255,.14); }
+  .btn-sound.muted { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.2); }
+
+  .btn .shortcut {
+    display: inline-block;
+    font-size: 10px;
+    opacity: .5;
+    margin-left: 6px;
+    font-weight: 400;
+  }
+
+  /* --- Point history log --- */
+  .point-log-section {
+    margin-top: 14px;
+  }
+  .point-log-section summary {
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    opacity: .6;
+    padding: 4px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity .2s;
+  }
+  .point-log-section summary:hover { opacity: 1; }
+  .point-log-section summary::-webkit-details-marker { display: none; }
+  .point-log-section summary::before {
+    content: '▶';
+    font-size: 8px;
+    transition: transform .2s;
+  }
+  .point-log-section[open] summary::before { transform: rotate(90deg); }
+
+  .point-log {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    padding: 8px 0 2px;
+  }
+  .point-log .pl-empty {
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: .4;
+    font-style: italic;
+  }
+  .point-log-item {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(0,0,0,.3);
+    animation: logPop .3s ease;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .point-log-item.p1 { color: var(--accent-light); border: 1px solid rgba(59,130,246,.15); }
+  .point-log-item.p2 { color: var(--accent-light); border: 1px solid rgba(96,165,250,.15); }
+  .point-log-item.game { color: var(--gold); border-color: rgba(251,191,36,.25); background: rgba(251,191,36,.06); }
+  .point-log-item.set { color: var(--green); border-color: rgba(52,211,153,.2); background: rgba(52,211,153,.06); }
+  .point-log-item.match { color: var(--pink); border-color: rgba(244,114,182,.2); background: rgba(244,114,182,.08); }
+  .point-log-item .pl-dot {
+    width: 5px; height: 5px; border-radius: 50%; display: inline-block;
+  }
+  .point-log-item .pl-dot.p1d { background: var(--accent); }
+  .point-log-item .pl-dot.p2d { background: var(--accent-light); }
+
+  @keyframes logPop {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Анимации */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { 0%{transform:scale(1);} 40%{transform:scale(1.25);} 70%{transform:scale(.95);} 100%{transform:scale(1);} }
+  .pop { animation: pop .4s ease; }
+
+  @keyframes scoreFlash {
+    0% { background: rgba(59,130,246,.3); }
+    100% { background: transparent; }
+  }
+  .score-flash { animation: scoreFlash .6s ease; }
+
+  /* Point notification toast */
+  .point-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    z-index: 999;
+    opacity: 0;
+    transition: all .4s ease;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    white-space: nowrap;
+  }
+  .point-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .point-toast.p1 { background: rgba(59,130,246,.85); color: #fff; }
+  .point-toast.p2 { background: rgba(96,165,250,.85); color: #fff; }
+  .point-toast .digit-img { height: 18px; }
+
+  /* Адаптивность */
+  @media (max-width: 600px) {
+    .board-head, .row {
+      grid-template-columns: 36px 1fr 50px 50px 70px;
+    }
+    .board-head { font-size: 9px; }
+    .name-cell { font-size: 16px; }
+    .cell { font-size: 18px; }
+    .cell.points { font-size: 16px; min-height: 40px; }
+    .digit-img { height: 20px; }
+    .point-img { height: 22px; }
+    .controls { gap: 8px; }
+    .btn { padding: 12px 14px; font-size: 13px; }
+    .setup { padding: 28px 20px; }
+    .match-stats { font-size: 10px; gap: 8px; }
+    .point-toast { font-size: 14px; padding: 8px 16px; }
+    .match-info-bar { padding: 6px 10px; font-size: 11px; }
+    .game-score-display { font-size: 11px; }
+    .btn-sound { padding: 12px 14px; font-size: 16px; min-width: 40px; }
+    .match-info-item { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Toast notification -->
+  <div class="point-toast" id="pointToast"></div>
+
+  <!-- Confetti container -->
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <!-- ЭКРАН НАСТРОЙКИ -->
+  <div class="setup" id="setup">
+    <h1>🎾 <span>Теннисный матч</span></h1>
+    <p>Введите имена игроков и выберите формат</p>
+
+    <div class="setup-row">
+      <div class="field">
+        <label>Игрок 1</label>
+        <input type="text" id="name1" placeholder="Напр. Надаль" maxlength="16" value="Игрок 1">
+      </div>
+      <div class="field">
+        <label>Игрок 2</label>
+        <input type="text" id="name2" placeholder="Напр. Джокович" maxlength="16" value="Игрок 2">
+      </div>
+    </div>
+
+    <div class="format-select">
+      <label>Формат матча</label>
+      <select id="format">
+        <option value="2">До 2 побед в сетах (best of 3)</option>
+        <option value="3">До 3 побед в сетах (best of 5)</option>
+        <option value="1">Один сет</option>
+      </select>
+    </div>
+
+    <div class="format-select">
+      <label>Кто подаёт первым</label>
+      <select id="firstServer">
+        <option value="0">Игрок 1</option>
+        <option value="1">Игрок 2</option>
+      </select>
+    </div>
+
+    <button class="btn-start" onclick="startMatch()">Начать матч ▶</button>
+  </div>
+
+  <!-- ЭКРАН МАТЧА -->
+  <div class="match" id="match">
+    <!-- Info bar -->
+    <div class="match-info-bar">
+      <div class="match-info-item">
+        <span class="info-icon">⏱</span>
+        <span class="info-value" id="matchTimer">00:00</span>
+      </div>
+      <div class="match-info-item">
+        <span class="info-icon">🏟</span>
+        <span class="match-title" id="matchFormatLabel">Матч</span>
+      </div>
+      <div class="match-info-item">
+        <span class="info-icon">🎯</span>
+        <span class="game-score-display" id="gameScoreDisplay">
+          <span class="gs-player p1">0</span>
+          <span class="gs-sep">:</span>
+          <span class="gs-player p2">0</span>
+        </span>
+      </div>
+      <div class="match-info-item">
+        <span class="info-icon">📊</span>
+        <span class="info-value" id="totalPoints">0</span>
+        <span style="color:var(--text-dim);font-weight:300;">очк.</span>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="board-head">
+        <div></div>
+        <div class="h-name">Игрок</div>
+        <div>Сеты</div>
+        <div>Геймы</div>
+        <div>Очки</div>
+      </div>
+
+      <div class="row" id="row-0">
+        <div class="serve-cell"><span class="ball"></span></div>
+        <div class="name-cell">
+          <span class="flag" id="flag-0">P1</span>
+          <span id="name-0">Игрок 1</span>
+          <div class="set-history" id="setHistory-0"></div>
+        </div>
+        <div class="cell sets num" id="sets-0">0</div>
+        <div class="cell games num" id="games-0">0</div>
+        <div class="cell points" id="points-0"></div>
+      </div>
+
+      <div class="row" id="row-1">
+        <div class="serve-cell"><span class="ball"></span></div>
+        <div class="name-cell">
+          <span class="flag" id="flag-1">P2</span>
+          <span id="name-1">Игрок 2</span>
+          <div class="set-history" id="setHistory-1"></div>
+        </div>
+        <div class="cell sets num" id="sets-1">0</div>
+        <div class="cell games num" id="games-1">0</div>
+        <div class="cell points" id="points-1"></div>
+      </div>
+
+      <div class="tiebreak-banner" id="tiebreak-banner">
+        <img src="тай_брейк-no-bg-preview (carve.photos).png" alt="Тай-брейк">
+        <span class="tb-score-label">Счёт:</span>
+        <span class="tb-live-score" id="tbLiveScore"></span>
+      </div>
+    </div>
+
+    <div class="winner-msg" id="winner-msg"></div>
+
+    <!-- Point history log -->
+    <details class="point-log-section" id="pointLogSection">
+      <summary>История очков</summary>
+      <div class="point-log" id="pointLog">
+        <span class="pl-empty">Очки появятся здесь</span>
+      </div>
+    </details>
+
+    <div class="controls">
+      <button class="btn btn-p1" id="btn-p1" onclick="addPoint(0)">Очко — Игрок 1 <span class="shortcut">[Пробел]</span></button>
+      <button class="btn btn-p2" id="btn-p2" onclick="addPoint(1)">Очко — Игрок 2 <span class="shortcut">[Shift+Пробел]</span></button>
+      <button class="btn btn-undo"  onclick="undo()">↩ Отменить <span class="shortcut">[Ctrl+Z]</span></button>
+      <button class="btn btn-reset" onclick="resetMatch()">⟳ Сброс</button>
+      <button class="btn btn-new"   onclick="newMatch()">✚ Новый матч</button>
+      <button class="btn btn-sound" id="btnSound" onclick="toggleSound()" title="Звук">🔊</button>
+    </div>
+  </div>
+
+<script>
+  // ---- Paths ----
+  const digitImg = n => `${n}-Photoroom.png`;
+  const IMG = {
+    points: ['0-Photoroom.png', '15-Photoroom.png', '30-Photoroom.png', '40-no-bg-preview (carve.photos).png'],
+    tiebreak: 'тай_брейк-no-bg-preview (carve.photos).png',
+  };
+
+  // ---- Number to digit images ----
+  function numberToImages(num) {
+    return String(num).split('').map(d => `<img class="digit-img" src="${digitImg(d)}" alt="${d}">`).join('');
+  }
+
+  // ---- Sound ----
+  let soundEnabled = true;
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+  function playBeep(freq, duration, volume = .15) {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch(e) { /* silent fail */ }
+  }
+  function playPointSound() { playBeep(800, .1); }
+  function playGameSound() { playBeep(600, .15); playBeep(800, .15); }
+  function playSetSound() { playBeep(500, .2); playBeep(700, .2); playBeep(900, .2); }
+  function playWinSound() {
+    [523, 659, 784, 1047].forEach((f, i) => {
+      setTimeout(() => playBeep(f, .25, .2), i * 150);
+    });
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled;
+    document.getElementById('btnSound').textContent = soundEnabled ? '🔊' : '🔇';
+    document.getElementById('btnSound').classList.toggle('muted', !soundEnabled);
+    if (soundEnabled) playBeep(600, .1);
+  }
+
+  // ---- Confetti ----
+  function launchConfetti() {
+    const container = document.getElementById('confettiContainer');
+    const colors = ['#fbbf24', '#3b82f6', '#60a5fa', '#34d399', '#f87171', '#a78bfa', '#f472b6'];
+    for (let i = 0; i < 80; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = Math.random() * 100 + '%';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.width = (Math.random() * 8 + 4) + 'px';
+      el.style.height = (Math.random() * 8 + 4) + 'px';
+      el.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      el.style.animationDelay = (Math.random() * 2) + 's';
+      el.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }
+  }
+
+  // ---- Toast ----
+  let toastTimeout = null;
+  function showToast(player, text) {
+    const el = document.getElementById('pointToast');
+    el.className = 'point-toast ' + (player === 0 ? 'p1' : 'p2');
+    el.innerHTML = '🎾 ' + text;
+    el.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  // ---- State ----
+  let state, history, names, setsToWin;
+  let setHistory = [[], []];
+  let totalPointsScored = 0;
+  let pointLog = [];
+  let matchTimerInterval = null;
+  let matchStartTime = null;
+
+  function freshState(firstServer) {
+    return {
+      points: [0, 0],
+      games:  [0, 0],
+      sets:   [0, 0],
+      server: firstServer,
+      tiebreak: false,
+      matchOver: false,
+      tbTotal: 0,
+      winner: null,
+    };
+  }
+
+  function saveSnapshot() {
+    return {
+      state: JSON.parse(JSON.stringify(state)),
+      setHistory: [ [...setHistory[0]], [...setHistory[1]] ],
+      totalPointsScored: totalPointsScored,
+      pointLog: [...pointLog],
+    };
+  }
+
+  // ---- Timer ----
+  function startTimer() {
+    matchStartTime = Date.now();
+    clearInterval(matchTimerInterval);
+    matchTimerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+  }
+
+  function stopTimer() {
+    clearInterval(matchTimerInterval);
+  }
+
+  function updateTimer() {
+    const el = document.getElementById('matchTimer');
+    if (!matchStartTime) { el.textContent = '00:00'; return; }
+    const elapsed = Math.floor((Date.now() - matchStartTime) / 1000);
+    const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const sec = String(elapsed % 60).padStart(2, '0');
+    el.textContent = min + ':' + sec;
+  }
+
+  // ---- Start match ----
+  function startMatch() {
+    const n1 = (document.getElementById('name1').value || 'Игрок 1').trim();
+    const n2 = (document.getElementById('name2').value || 'Игрок 2').trim();
+    names = [n1, n2];
+    setsToWin = parseInt(document.getElementById('format').value, 10);
+    const firstServer = parseInt(document.getElementById('firstServer').value, 10);
+
+    state = freshState(firstServer);
+    history = [];
+    setHistory = [[], []];
+    totalPointsScored = 0;
+    pointLog = [];
+
+    document.getElementById('name-0').textContent = n1;
+    document.getElementById('name-1').textContent = n2;
+    document.getElementById('flag-0').textContent = initials(n1);
+    document.getElementById('flag-1').textContent = initials(n2);
+    document.getElementById('flag-0').className = 'flag';
+    document.getElementById('flag-1').className = 'flag';
+    document.getElementById('btn-p1').innerHTML = 'Очко — ' + n1 + ' <span class="shortcut">[Пробел]</span>';
+    document.getElementById('btn-p2').innerHTML = 'Очко — ' + n2 + ' <span class="shortcut">[Shift+Пробел]</span>';
+
+    const labels = { 1: 'Один сет', 2: 'Best of 3', 3: 'Best of 5' };
+    document.getElementById('matchFormatLabel').textContent = labels[setsToWin] || 'Матч';
+
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('match').classList.add('active');
+
+    // Reset and close point log
+    const logSection = document.getElementById('pointLogSection');
+    logSection.removeAttribute('open');
+    renderPointLog();
+
+    stopTimer();
+    startTimer();
+    render();
+  }
+
+  function initials(name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }
+
+  // ---- Render ----
+  function renderNormalPoint(idx) {
+    const p = state.points[idx];
+    const o = state.points[idx === 0 ? 1 : 0];
+    if (p >= 3 && o >= 3) {
+      if (p === o) return '<span class="num">40</span>';
+      if (p > o)   return '<span class="num">AD</span>';
+      return '<span class="num">—</span>';
+    }
+    return `<img class="point-img" src="${IMG.points[p]}" alt="${['0','15','30','40'][p]}">`;
+  }
+
+  function renderSetHistory() {
+    for (let i = 0; i < 2; i++) {
+      const container = document.getElementById('setHistory-' + i);
+      if (setHistory[i].length === 0) {
+        container.innerHTML = '';
+        continue;
+      }
+      container.innerHTML = setHistory[i].map((score, si) => {
+        const won = state.sets[i] > si;
+        return `<span class="set-history-item${won ? ' won' : ''}">${score}</span>`;
+      }).join('');
+    }
+  }
+
+  function getGameScoreDisplay() {
+    const p0 = state.points[0], p1 = state.points[1];
+    const p0label = state.tiebreak ? p0 : (['0','15','30','40'][p0] || p0);
+    const p1label = state.tiebreak ? p1 : (['0','15','30','40'][p1] || p1);
+    if (state.matchOver) return '<span class="gs-player p1">—</span><span class="gs-sep">:</span><span class="gs-player p2">—</span>';
+    return '<span class="gs-player p1">' + p0label + '</span><span class="gs-sep">:</span><span class="gs-player p2">' + p1label + '</span>';
+  }
+
+  function getSituationBadges() {
+    if (state.matchOver || state.tiebreak) return '';
+    const p0 = state.points[0], p1 = state.points[1];
+    const diff = Math.abs(p0 - p1);
+    const max = Math.max(p0, p1);
+    const leader = p0 > p1 ? 0 : 1;
+    const needed = max >= 3 && diff >= 1 ? leader : null;
+
+    let badges = '';
+    // Match point check
+    if (needed !== null && !state.matchOver) {
+      const leaderSets = state.sets[leader];
+      const leaderGames = state.games[leader] + 1; // after winning this point
+      const oppGames = state.games[leader === 0 ? 1 : 0];
+      // Check if winning this point wins the set or match
+      if (leaderSets >= setsToWin - 1) {
+        // Could be match point
+        badges += `<span class="situation-badge mp">MP</span>`;
+      } else {
+        // Check if it's set point
+        badges += `<span class="situation-badge sp">SP</span>`;
+      }
+    }
+    // Break point check
+    if (state.server !== null && state.server !== leader && needed !== null) {
+      badges += `<span class="situation-badge bp">BP</span>`;
+    }
+    return badges;
+  }
+
+  function render() {
+    for (let i = 0; i < 2; i++) {
+      document.getElementById('sets-'  + i).innerHTML = numberToImages(state.sets[i]);
+      document.getElementById('games-' + i).innerHTML = numberToImages(state.games[i]);
+      const pc = document.getElementById('points-' + i);
+      if (state.matchOver) {
+        pc.innerHTML = '';
+      } else if (state.tiebreak) {
+        pc.innerHTML = numberToImages(state.points[i]);
+      } else {
+        pc.innerHTML = renderNormalPoint(i);
+      }
+    }
+
+    // Add situation badges to points cells
+    if (!state.matchOver) {
+      const badges = getSituationBadges();
+      if (badges) {
+        const p0el = document.getElementById('points-0');
+        const p1el = document.getElementById('points-1');
+        // Add badges to the leader's cell
+        const leader = state.points[0] > state.points[1] ? 0 : (state.points[1] > state.points[0] ? 1 : -1);
+        if (leader !== -1) {
+          const el = document.getElementById('points-' + leader);
+          if (!el.querySelector('.situation-badge')) {
+            el.innerHTML += ' ' + badges;
+          }
+        }
+      }
+    }
+
+    renderSetHistory();
+
+    document.getElementById('row-0').classList.toggle('serving', state.server === 0 && !state.matchOver);
+    document.getElementById('row-1').classList.toggle('serving', state.server === 1 && !state.matchOver);
+
+    document.getElementById('row-0').classList.toggle('winner-row', state.winner === 0);
+    document.getElementById('row-1').classList.toggle('winner-row', state.winner === 1);
+
+    document.getElementById('tiebreak-banner').classList.toggle('show', state.tiebreak && !state.matchOver);
+
+    // Tiebreak score
+    const tbLive = document.getElementById('tbLiveScore');
+    if (state.tiebreak) {
+      tbLive.innerHTML =
+        numberToImages(state.points[0]) +
+        ' <span class="tb-sep">:</span> ' +
+        numberToImages(state.points[1]);
+    }
+
+    const btn1 = document.getElementById('btn-p1');
+    const btn2 = document.getElementById('btn-p2');
+    btn1.disabled = btn2.disabled = state.matchOver;
+    btn1.style.opacity = btn2.style.opacity = state.matchOver ? .5 : 1;
+
+    // Game score display in info bar
+    document.getElementById('gameScoreDisplay').innerHTML = getGameScoreDisplay();
+
+    // Total points
+    document.getElementById('totalPoints').textContent = totalPointsScored;
+
+    // Winner
+    const wm = document.getElementById('winner-msg');
+    if (state.matchOver && state.winner !== null) {
+      wm.innerHTML = '🏆 ' + names[state.winner] + ' выиграл матч! (' +
+        numberToImages(state.sets[0]) + ' : ' + numberToImages(state.sets[1]) + ')';
+      document.getElementById('flag-' + state.winner).classList.add('winner-flag');
+    } else {
+      wm.innerHTML = '';
+    }
+  }
+
+  // ---- Point log ----
+  function addToPointLog(player, type) {
+    if (type === 'point') {
+      pointLog.push({ player, type: 'point', label: names[player].slice(0, 8) });
+    } else if (type === 'game') {
+      pointLog.push({ player, type: 'game', label: '🎯 ' + names[player].slice(0, 8) });
+    } else if (type === 'set') {
+      pointLog.push({ player, type: 'set', label: '🔥 ' + names[player].slice(0, 8) });
+    } else if (type === 'match') {
+      pointLog.push({ player, type: 'match', label: '🏆 ' + names[player].slice(0, 8) + ' MATCH' });
+    }
+    // Keep last 100 items
+    if (pointLog.length > 100) pointLog = pointLog.slice(-100);
+    renderPointLog();
+  }
+
+  function renderPointLog() {
+    const container = document.getElementById('pointLog');
+    if (pointLog.length === 0) {
+      container.innerHTML = '<span class="pl-empty">Очки появятся здесь</span>';
+      return;
+    }
+    container.innerHTML = pointLog.map((item, idx) => {
+      const pClass = item.player === 0 ? 'p1' : 'p2';
+      const dotClass = item.player === 0 ? 'p1d' : 'p2d';
+      let extraClass = '';
+      if (item.type === 'game') extraClass = ' game';
+      else if (item.type === 'set') extraClass = ' set';
+      else if (item.type === 'match') extraClass = ' match';
+      const dot = item.type === 'point' ? `<span class="pl-dot ${dotClass}"></span>` : '';
+      return `<span class="point-log-item ${pClass}${extraClass}" style="animation-delay:${idx * 0.02}s">${dot}${item.label}</span>`;
+    }).join('');
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ---- Logic ----
+  function addPoint(player) {
+    if (state.matchOver) return;
+
+    // Save snapshot for undo
+    history.push(saveSnapshot());
+
+    const opp = player === 0 ? 1 : 0;
+    totalPointsScored++;
+    addToPointLog(player, 'point');
+
+    if (state.tiebreak) {
+      state.points[player]++;
+      state.tbTotal++;
+      if (state.tbTotal === 1 || (state.tbTotal > 1 && (state.tbTotal - 1) % 2 === 0)) {
+        state.server = state.server === 0 ? 1 : 0;
+        document.getElementById('row-' + state.server).classList.remove('server-change');
+        void document.getElementById('row-' + state.server).offsetWidth;
+        document.getElementById('row-' + state.server).classList.add('server-change');
+      }
+      if (state.points[player] >= 7 && state.points[player] - state.points[opp] >= 2) {
+        winGame(player);
+      }
+      playPointSound();
+      showToast(player, names[player] + ' — ' + state.points[player]);
+    } else {
+      state.points[player]++;
+      if (state.points[player] >= 4 && state.points[player] - state.points[opp] >= 2) {
+        winGame(player);
+      }
+      playPointSound();
+      const pLabel = ['0', '15', '30', '40'][state.points[player]] || state.points[player];
+      showToast(player, names[player] + ' — ' + pLabel);
+    }
+    render();
+    animatePoints(player);
+  }
+
+  function winGame(player) {
+    const opp = player === 0 ? 1 : 0;
+    state.games[player]++;
+    state.points = [0, 0];
+    state.tiebreak = false;
+    state.tbTotal = 0;
+    state.server = state.server === 0 ? 1 : 0;
+    playGameSound();
+    showToast(player, '🎯 Гейм — ' + names[player]);
+    addToPointLog(player, 'game');
+
+    if (state.games[player] >= 6 && state.games[player] - state.games[opp] >= 2) {
+      winSet(player, state.games[opp]); return;
+    }
+    if (state.games[player] === 6 && state.games[opp] === 6) {
+      state.tiebreak = true;
+      showToast(player, '⚡ Тай-брейк!');
+      return;
+    }
+    if (state.games[player] === 7 && state.games[opp] === 6) {
+      winSet(player, state.games[opp]); return;
+    }
+  }
+
+  function winSet(player, oppGames) {
+    setHistory[player].push(oppGames);
+    setHistory[player === 0 ? 1 : 0].push(state.games[player === 0 ? 1 : 0]);
+
+    state.sets[player]++;
+    state.games = [0, 0];
+    state.points = [0, 0];
+    state.tiebreak = false;
+
+    playSetSound();
+    showToast(player, '🔥 Сет — ' + names[player]);
+    addToPointLog(player, 'set');
+
+    if (state.sets[player] >= setsToWin) {
+      state.matchOver = true;
+      state.winner = player;
+      stopTimer();
+      playWinSound();
+      launchConfetti();
+      addToPointLog(player, 'match');
+    }
+  }
+
+  function undo() {
+    if (!history || history.length === 0) return;
+    const snap = history.pop();
+    state = snap.state;
+    setHistory = snap.setHistory;
+    totalPointsScored = snap.totalPointsScored;
+    pointLog = snap.pointLog;
+    render();
+    renderPointLog();
+  }
+
+  function resetMatch() {
+    state = freshState(state.server);
+    history = [];
+    setHistory = [[], []];
+    totalPointsScored = 0;
+    pointLog = [];
+    document.getElementById('flag-0').className = 'flag';
+    document.getElementById('flag-1').className = 'flag';
+    stopTimer();
+    startTimer();
+    render();
+    renderPointLog();
+    document.getElementById('pointLogSection').removeAttribute('open');
+  }
+
+  function newMatch() {
+    stopTimer();
+    matchStartTime = null;
+    document.getElementById('match').classList.remove('active');
+    document.getElementById('setup').style.display = 'block';
+    document.getElementById('flag-0').className = 'flag';
+    document.getElementById('flag-1').className = 'flag';
+  }
+
+  function animatePoints(player) {
+    const el = document.getElementById('points-' + player);
+    el.classList.remove('pop');
+    void el.offsetWidth;
+    el.classList.add('pop');
+  }
+
+  // ---- Keyboard shortcuts ----
+  document.addEventListener('keydown', e => {
+    const matchActive = document.getElementById('match').classList.contains('active');
+
+    if (!matchActive) {
+      if (e.key === 'Enter') startMatch();
+      return;
+    }
+
+    // Space — point for player 1
+    if (e.key === ' ' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      addPoint(0);
+      return;
+    }
+    // Shift+Space — point for player 2
+    if (e.key === ' ' && e.shiftKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      addPoint(1);
+      return;
+    }
+    // Ctrl+Z — undo
+    if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    // M — toggle sound
+    if ((e.key === 'm' || e.key === 'ь') && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      toggleSound();
+      return;
+    }
+  });
+
+  // ---- Enter in setup fields ----
+  document.getElementById('name1').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('name2').focus();
+  });
+  document.getElementById('name2').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startMatch();
+  });
+</script>
+</body>
+</html>
