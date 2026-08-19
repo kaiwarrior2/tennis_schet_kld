@@ -949,12 +949,37 @@
     function renderThirdPlace() {
       const section = document.getElementById('thirdPlaceSection');
       const cardEl = document.getElementById('thirdPlaceCard');
-      if (!tournament.thirdPlace || !tournament.thirdPlace.player1 || !tournament.thirdPlace.player2) {
+      // Always show for tournaments of 4+ players
+      if (!tournament || tournament.size < 4) {
         section.style.display = 'none';
         return;
       }
       section.style.display = 'block';
       const tp = tournament.thirdPlace;
+      const hasPlayers = tp && tp.player1 && tp.player2;
+
+      if (!hasPlayers) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'third-place-card';
+        placeholder.innerHTML = `
+          <div class="match-label">
+            <span>🥉 Матч за 3-е место</span>
+            <span class="sets-format">BO${tournament.setsToWin * 2 - 1}</span>
+          </div>
+          <div class="match-player empty">
+            <span class="player-name">— ожидание —</span>
+            <span class="player-score"></span>
+          </div>
+          <div class="match-player empty">
+            <span class="player-name">— ожидание —</span>
+            <span class="player-score"></span>
+          </div>
+        `;
+        cardEl.innerHTML = '';
+        cardEl.appendChild(placeholder);
+        return;
+      }
+
       const d = deriveMatch({ player1: tp.player1, player2: tp.player2, games: tp.games, forcedWinner: tp.forcedWinner });
 
       const card = document.createElement('div');
@@ -1209,6 +1234,7 @@
         if (!raw) return null;
         const t = JSON.parse(raw);
         if (!t || !t.matches || !t.size) return null;
+        if (!t.thirdPlace) t.thirdPlace = null;
         return t;
       } catch (e) { return null; }
     }
