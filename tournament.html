@@ -1361,11 +1361,22 @@
     function screenshotBracket() {
       if (!tournament) return;
       const tree = document.getElementById('bracketTree');
+      const thirdSection = document.getElementById('thirdPlaceSection');
       const savedZoom = zoom;
       tree.style.zoom = 1;
       renderBracket();
+
+      // Create a temporary wrapper that includes both the tree and third place section
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background:#0a1628;padding:24px;z-index:-1;';
+      wrapper.appendChild(tree.cloneNode(true));
+      const thirdClone = thirdSection.cloneNode(true);
+      thirdClone.style.display = 'block';
+      wrapper.appendChild(thirdClone);
+      document.body.appendChild(wrapper);
+
       setTimeout(() => {
-        html2canvas(tree, {
+        html2canvas(wrapper, {
           backgroundColor: '#0a1628',
           scale: 2,
           useCORS: true,
@@ -1375,9 +1386,11 @@
           link.download = `${tournament.name.replace(/\s+/g, '_')}_сетка.png`;
           link.href = canvas.toDataURL('image/png');
           link.click();
+          wrapper.remove();
           tree.style.zoom = savedZoom;
           renderBracket();
         }).catch(() => {
+          wrapper.remove();
           tree.style.zoom = savedZoom;
           renderBracket();
           alert('Не удалось сделать скриншот');
