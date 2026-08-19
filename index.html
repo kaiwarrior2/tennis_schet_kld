@@ -7,6 +7,13 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  @font-face {
+    font-family: 'KrasnodarGrotesk';
+    src: url('font/KrasnodarGrotesk.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
   :root {
     --court: #0a1628;
     --court-dark: #040a14;
@@ -193,6 +200,7 @@
     color: var(--text-blue);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .match-info-item .info-value.gold { color: var(--gold); }
   .match-info-item .info-value.green { color: var(--green); }
@@ -287,6 +295,7 @@
     text-align: center;
     font-size: 24px;
     font-weight: 800;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .cell.sets  { color: var(--gold); }
   .cell.games { color: var(--text-blue); }
@@ -306,7 +315,7 @@
 
   .digit-img { height: 26px; vertical-align: middle; margin: 0 1px; filter: drop-shadow(0 0 4px rgba(59,130,246,.15)); }
   .point-img { height: 28px; vertical-align: middle; filter: drop-shadow(0 0 4px rgba(59,130,246,.1)); }
-  .num       { font-variant-numeric: tabular-nums; }
+  .num       { font-variant-numeric: tabular-nums; font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif; }
 
   /* Critical situation badges */
   .situation-badge {
@@ -355,6 +364,7 @@
     align-items: center;
     gap: 4px;
     letter-spacing: .5px;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .game-score-display .gs-sep { color: var(--text-dim); font-weight: 300; }
 
@@ -387,6 +397,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .tb-live-score .digit-img { height: 18px; }
   .tb-sep { color: var(--text-dim); font-weight: 300; }
@@ -407,6 +418,7 @@
     padding: 2px 6px;
     border-radius: 4px;
     letter-spacing: .5px;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .set-history-item.won { color: var(--gold); background: rgba(251,191,36,.1); }
 

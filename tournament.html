@@ -7,6 +7,13 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  @font-face {
+    font-family: 'KrasnodarGrotesk';
+    src: url('font/KrasnodarGrotesk.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
   :root {
     --court: #0a1628;
     --court-dark: #040a14;
@@ -116,7 +123,7 @@
     border-radius: 10px; margin-bottom: 6px;
     border: 1px solid rgba(59,130,246,.08);
   }
-  .player-row .player-num { color: var(--accent-light); font-weight: 700; font-size: 13px; min-width: 26px; }
+  .player-row .player-num { color: var(--accent-light); font-weight: 700; font-size: 13px; min-width: 26px; font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif; }
   .player-row input {
     flex: 1; padding: 8px 12px; border-radius: 8px;
     border: 1px solid rgba(59,130,246,.15); background: rgba(0,0,0,.3);
@@ -155,7 +162,7 @@
   }
   .bracket-title { font-size: 22px; color: var(--gold); letter-spacing: 1px; font-weight: 800; }
   .bracket-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .zoom-label { font-size: 12px; color: var(--text-dim); min-width: 44px; text-align: center; }
+  .zoom-label { font-size: 12px; color: var(--text-dim); min-width: 44px; text-align: center; font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif; }
 
   .bracket-scroll {
     overflow: auto;
@@ -221,7 +228,7 @@
     color: var(--text-dim); margin-bottom: 6px; opacity: .8;
     display: flex; justify-content: space-between;
   }
-  .match-label .sets-format { opacity: .7; }
+  .match-label .sets-format { opacity: .7; font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif; }
 
   .match-player {
     display: flex; justify-content: space-between; align-items: center;
@@ -237,6 +244,7 @@
   .match-player .player-score {
     font-size: 15px; font-weight: 800; margin-left: 10px;
     color: var(--text-blue); min-width: 18px; text-align: center;
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .match-player.winner .player-name { color: var(--gold); }
   .match-player.winner .player-score { color: var(--gold); }
@@ -250,6 +258,7 @@
     font-size: 10px; font-weight: 700; padding: 2px 7px;
     border-radius: 5px; background: rgba(59,130,246,.1);
     color: var(--text-blue); border: 1px solid rgba(59,130,246,.12);
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
 
   /* Champion */
@@ -296,12 +305,13 @@
   .mp-info { flex: 1; min-width: 0; }
   .mp-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mp-sets { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-  .mp-sets b { color: var(--text-blue); }
+  .mp-sets b { color: var(--text-blue); font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif; }
 
   .mp-controls { display: flex; align-items: center; gap: 8px; }
   .mp-current {
     font-size: 26px; font-weight: 800; min-width: 44px; text-align: center;
     color: var(--accent-light);
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .modal-player-row.leading .mp-current { color: var(--gold); }
   .mp-btn {
@@ -325,6 +335,7 @@
     padding: 5px 12px; background: rgba(0,0,0,.35); border-radius: 8px;
     font-size: 13px; font-weight: 700; color: var(--text-blue);
     border: 1px solid rgba(59,130,246,.12);
+    font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
   .set-score-badge .tb { font-size: 10px; opacity: .75; }
   .set-score-badge.won-p1 { border-color: rgba(251,191,36,.35); }
