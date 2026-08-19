@@ -261,6 +261,38 @@
     font-family: 'KrasnodarGrotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   }
 
+  /* Third place match */
+  .third-place-section {
+    margin-top: 24px;
+    text-align: center;
+  }
+  .third-place-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 10px;
+    opacity: .8;
+  }
+  .third-place-card {
+    display: inline-block;
+    background: linear-gradient(160deg, rgba(10,22,40,.95), rgba(4,10,20,.95));
+    border: 1px solid rgba(59,130,246,.15);
+    border-radius: 12px;
+    padding: 8px 12px;
+    width: 230px;
+    transition: border-color .2s, box-shadow .2s, transform .15s;
+    position: relative;
+    cursor: pointer;
+    text-align: left;
+  }
+  .third-place-card:hover {
+    border-color: rgba(59,130,246,.5);
+    box-shadow: 0 6px 24px rgba(59,130,246,.25);
+    transform: translateY(-2px);
+  }
+  .third-place-card.completed { border-color: rgba(251,191,36,.3); }
+
   /* Champion */
   .winner-section {
     display: none; text-align: center; margin: 28px auto 0;
@@ -362,6 +394,74 @@
     .setup { padding: 24px 18px; }
     .header a.back-link { position: static; display: inline-block; margin-bottom: 10px; }
   }
+
+  /* ---------- Print styles ---------- */
+  @media print {
+    body {
+      background: #fff !important;
+      color: #000 !important;
+      padding: 0 !important;
+    }
+    body::before { display: none !important; }
+    .header, .bracket-toolbar, .winner-section, .third-place-section, .modal-overlay { display: none !important; }
+    .bracket-view { display: block !important; }
+    .bracket-scroll {
+      max-height: none !important;
+      overflow: visible !important;
+      border: none !important;
+      background: none !important;
+      padding: 0 !important;
+    }
+    .bracket-tree { zoom: 1 !important; margin: 0 !important; }
+    .third-place-section {
+      display: block !important;
+      margin-top: 24px;
+    }
+    .third-place-card {
+      background: #fff !important;
+      border: 1px solid #999 !important;
+      color: #000 !important;
+      break-inside: avoid;
+      display: inline-block;
+    }
+    .third-place-title { color: #000 !important; }
+    .third-place-card .match-label { color: #666 !important; }
+    .third-place-card .match-player .player-name { color: #000 !important; }
+    .third-place-card .match-player .player-score { color: #000 !important; }
+    .third-place-card .match-player.winner .player-name { color: #000 !important; }
+    .third-place-card .match-player.winner .player-score { color: #000 !important; }
+    .third-place-card .match-player.loser { opacity: .4 !important; }
+    .third-place-card .set-chip {
+      background: #f0f0f0 !important;
+      color: #000 !important;
+      border: 1px solid #ccc !important;
+    }
+    .match-card {
+      background: #fff !important;
+      border: 1px solid #999 !important;
+      color: #000 !important;
+      break-inside: avoid;
+    }
+    .match-label { color: #666 !important; }
+    .match-player .player-name { color: #000 !important; }
+    .match-player .player-score { color: #000 !important; }
+    .match-player.winner .player-name { color: #000 !important; }
+    .match-player.winner .player-score { color: #000 !important; }
+    .match-player.loser { opacity: .4 !important; }
+    .match-player.empty .player-name { color: #999 !important; }
+    .set-chip {
+      background: #f0f0f0 !important;
+      color: #000 !important;
+      border: 1px solid #ccc !important;
+    }
+    .node-children > .node::after,
+    .node-children > .node:first-child::before,
+    .node-children > .node:last-child::before,
+    .node-children + .node-match::before {
+      background: #999 !important;
+    }
+    .container { max-width: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -427,12 +527,18 @@
           <button class="btn btn-secondary" onclick="openEditNames()">✏️ Имена</button>
           <button class="btn btn-secondary" onclick="openEditPairs()">🔀 Пары</button>
           <button class="btn btn-secondary" onclick="exportBracket()">📋 Экспорт</button>
+          <button class="btn btn-secondary" onclick="printBracket()">🖨 PDF</button>
           <button class="btn btn-secondary" onclick="resetTournament()">🔄 Новый турнир</button>
         </div>
       </div>
 
       <div class="bracket-scroll" id="bracketScroll">
         <div class="bracket-tree" id="bracketTree"></div>
+      </div>
+
+      <div class="third-place-section" id="thirdPlaceSection" style="display:none;">
+        <div class="third-place-title">🥉 Матч за 3-е место</div>
+        <div id="thirdPlaceCard"></div>
       </div>
 
       <div class="winner-section" id="winnerSection">
@@ -614,7 +720,7 @@
         }
       }
 
-      tournament = { name, size, setsToWin, players, matches, finished: false, champion: null };
+      tournament = { name, size, setsToWin, players, matches, finished: false, champion: null, thirdPlace: null };
       saveState();
       showBracket();
     }
@@ -664,6 +770,24 @@
       return { sets, cur, w1, w2, winnerIdx };
     }
 
+    // Get third place match participants (losers of semifinals)
+    function getThirdPlaceMatch() {
+      if (!tournament || tournament.size < 4) return null;
+      const numRounds = Math.log2(tournament.size);
+      const semiRound = numRounds - 1;
+      const semis = tournament.matches.filter(m => m.round === semiRound).sort((a, b) => a.position - b.position);
+      if (semis.length !== 2) return null;
+      const losers = [];
+      semis.forEach(s => {
+        const d = deriveMatch(s);
+        if (d.winnerIdx != null) {
+          losers.push(d.winnerIdx === 0 ? s.player2 : s.player1);
+        }
+      });
+      if (losers.length !== 2 || !losers[0] || !losers[1]) return null;
+      return { player1: losers[0], player2: losers[1] };
+    }
+
     // Recompute winners and propagate through the bracket
     function syncTournament() {
       const numRounds = Math.log2(tournament.size);
@@ -697,6 +821,30 @@
         tournament.champion = (final.player1 && final.player1.id === final.winnerId) ? final.player1 : final.player2;
         tournament.finished = true;
       }
+
+      // Third place match
+      const tp = getThirdPlaceMatch();
+      if (tp) {
+        if (!tournament.thirdPlace) {
+          tournament.thirdPlace = { player1: tp.player1, player2: tp.player2, games: [], forcedWinner: null, winnerId: null };
+        } else {
+          // Update players if they changed
+          if (tournament.thirdPlace.player1 && tournament.thirdPlace.player1.id !== tp.player1.id) {
+            tournament.thirdPlace.player1 = tp.player1;
+            tournament.thirdPlace.games = [];
+            tournament.thirdPlace.forcedWinner = null;
+            tournament.thirdPlace.winnerId = null;
+          }
+          if (tournament.thirdPlace.player2 && tournament.thirdPlace.player2.id !== tp.player2.id) {
+            tournament.thirdPlace.player2 = tp.player2;
+            tournament.thirdPlace.games = [];
+            tournament.thirdPlace.forcedWinner = null;
+            tournament.thirdPlace.winnerId = null;
+          }
+        }
+      } else {
+        tournament.thirdPlace = null;
+      }
     }
 
     // ================= Rendering =================
@@ -706,6 +854,7 @@
       document.getElementById('bracketTitle').textContent = '🏆 ' + tournament.name;
       renderBracket();
       renderChampion();
+      renderThirdPlace();
     }
 
     function renderBracket() {
@@ -714,6 +863,7 @@
       tree.innerHTML = '';
       const numRounds = Math.log2(tournament.size);
       tree.appendChild(renderNode(getMatch(numRounds, 0)));
+      renderThirdPlace();
     }
 
     function renderNode(match) {
@@ -796,6 +946,120 @@
       return (match.player1 && match.player2) ? setsWon : '';
     }
 
+    function renderThirdPlace() {
+      const section = document.getElementById('thirdPlaceSection');
+      const cardEl = document.getElementById('thirdPlaceCard');
+      if (!tournament.thirdPlace || !tournament.thirdPlace.player1 || !tournament.thirdPlace.player2) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'block';
+      const tp = tournament.thirdPlace;
+      const d = deriveMatch({ player1: tp.player1, player2: tp.player2, games: tp.games, forcedWinner: tp.forcedWinner });
+
+      const card = document.createElement('div');
+      card.className = 'third-place-card' + (tp.winnerId != null ? ' completed' : '');
+      card.innerHTML = `
+        <div class="match-label">
+          <span>🥉 Матч за 3-е место</span>
+          <span class="sets-format">BO${tournament.setsToWin * 2 - 1}</span>
+        </div>
+        <div class="match-player ${d.winnerIdx === 0 ? 'winner' : ''} ${d.winnerIdx === 1 ? 'loser' : ''}">
+          <span class="player-name">${d.winnerIdx === 0 ? '✓ ' : ''}${esc(tp.player1.name)}${tp.player1.seed ? ` <span class="seed-tag">#${tp.player1.seed}</span>` : ''}</span>
+          <span class="player-score">${d.sets.length ? d.w1 : ''}</span>
+        </div>
+        <div class="match-player ${d.winnerIdx === 1 ? 'winner' : ''} ${d.winnerIdx === 0 ? 'loser' : ''}">
+          <span class="player-name">${d.winnerIdx === 1 ? '✓ ' : ''}${esc(tp.player2.name)}${tp.player2.seed ? ` <span class="seed-tag">#${tp.player2.seed}</span>` : ''}</span>
+          <span class="player-score">${d.sets.length ? d.w2 : ''}</span>
+        </div>
+        ${d.sets.length ? `<div class="match-sets">${d.sets.map(s => `<span class="set-chip">${s.p1}:${s.p2}</span>`).join('')}</div>` : ''}
+      `;
+      card.addEventListener('click', () => openThirdPlaceMatch());
+      cardEl.innerHTML = '';
+      cardEl.appendChild(card);
+    }
+
+    function openThirdPlaceMatch() {
+      if (!tournament.thirdPlace || !tournament.thirdPlace.player1 || !tournament.thirdPlace.player2) return;
+      currentMatchId = 'third';
+      document.getElementById('matchModal').classList.add('active');
+      renderThirdPlaceModal();
+    }
+
+    function renderThirdPlaceModal() {
+      const tp = tournament.thirdPlace;
+      const d = deriveMatch({ player1: tp.player1, player2: tp.player2, games: tp.games, forcedWinner: tp.forcedWinner });
+      document.getElementById('modalTitle').textContent = '🥉 Матч за 3-е место';
+      document.getElementById('modalMatchInfo').textContent =
+        `Формат: до ${tournament.setsToWin} побед в сетах · Сет до 6 геймов · Тай-брейк при 6:6`;
+
+      const container = document.getElementById('modalPlayers');
+      container.innerHTML = '';
+
+      [tp.player1, tp.player2].forEach((player, idx) => {
+        const row = document.createElement('div');
+        row.className = 'modal-player-row';
+        const setsWon = idx === 0 ? d.w1 : d.w2;
+        const oppWon = idx === 0 ? d.w2 : d.w1;
+        if (setsWon > oppWon) row.classList.add('leading');
+        const curScore = d.cur.tb ? (idx === 0 ? d.cur.tb.p1 : d.cur.tb.p2) : (idx === 0 ? d.cur.p1 : d.cur.p2);
+        const isForced = tp.forcedWinner === player.id;
+        const btnLabel = d.cur.tb ? '+Очко' : '+Гейм';
+        row.innerHTML = `
+          <div class="mp-info">
+            <div class="mp-name">${esc(player.name)}${player.seed ? ` <span class="seed-tag">#${player.seed}</span>` : ''}</div>
+            <div class="mp-sets">Сеты: <b>${setsWon}</b> / ${tournament.setsToWin}</div>
+          </div>
+          <div class="mp-controls">
+            <span class="mp-current">${curScore}</span>
+            <button class="mp-btn" onclick="addThirdPlaceGame(${idx})" title="${btnLabel}">+</button>
+            <button class="mp-win" onclick="forceThirdPlaceWinner(${idx})" title="Присудить победу" ${isForced ? 'style="background:rgba(251,191,36,.4)"' : ''}>🏆</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      const sc = document.getElementById('setScores');
+      sc.innerHTML = '';
+      d.sets.forEach((s, i) => {
+        const w = setWinnerIdx(s);
+        const badge = document.createElement('span');
+        badge.className = 'set-score-badge ' + (w === 0 ? 'won-p1' : 'won-p2');
+        badge.innerHTML = `${i + 1} сет: <span class="s1">${s.p1}</span>:<span class="s2">${s.p2}</span>`;
+        sc.appendChild(badge);
+      });
+
+      document.getElementById('tbNotice').style.display = d.cur.tb ? 'block' : 'none';
+    }
+
+    function addThirdPlaceGame(idx) {
+      const tp = tournament.thirdPlace;
+      if (!tp || !tp.player1 || !tp.player2) return;
+      tp.forcedWinner = null;
+      tp.games.push(idx);
+      afterThirdPlaceChange();
+    }
+
+    function forceThirdPlaceWinner(idx) {
+      const tp = tournament.thirdPlace;
+      if (!tp || !tp.player1 || !tp.player2) return;
+      const player = idx === 0 ? tp.player1 : tp.player2;
+      if (tp.forcedWinner === player.id) tp.forcedWinner = null;
+      else if (confirm(`Присудить победу: ${player.name}?`)) tp.forcedWinner = player.id;
+      afterThirdPlaceChange();
+    }
+
+    function afterThirdPlaceChange() {
+      const tp = tournament.thirdPlace;
+      const d = deriveMatch({ player1: tp.player1, player2: tp.player2, games: tp.games, forcedWinner: tp.forcedWinner });
+      tp.winnerId = d.winnerIdx != null ? (d.winnerIdx === 0 ? tp.player1.id : tp.player2.id) : null;
+      saveState();
+      renderBracket();
+      renderChampion();
+      renderThirdPlace();
+      renderThirdPlaceModal();
+    }
+
     function renderChampion() {
       const ws = document.getElementById('winnerSection');
       if (tournament.champion) {
@@ -812,6 +1076,7 @@
 
     // ================= Match modal =================
     function currentMatch() {
+      if (currentMatchId === 'third') return tournament.thirdPlace || null;
       return tournament.matches.find(m => m.id === currentMatchId);
     }
 
@@ -827,6 +1092,10 @@
     }
 
     function renderModal() {
+      if (currentMatchId === 'third') {
+        renderThirdPlaceModal();
+        return;
+      }
       const m = currentMatch();
       if (!m) return;
       const d = deriveMatch(m);
@@ -891,7 +1160,11 @@
       if (!m) return;
       if (m.forcedWinner != null) m.forcedWinner = null;
       else m.games.pop();
-      afterChange();
+      if (currentMatchId === 'third') {
+        afterThirdPlaceChange();
+      } else {
+        afterChange();
+      }
     }
 
     function forceWinner(idx) {
@@ -909,13 +1182,19 @@
       if (!confirm('Сбросить результат этого матча? Результаты следующих раундов с участием победителя также будут сброшены.')) return;
       m.games = [];
       m.forcedWinner = null;
-      afterChange();
+      if (currentMatchId === 'third') {
+        m.winnerId = null;
+        afterThirdPlaceChange();
+      } else {
+        afterChange();
+      }
     }
 
     function afterChange() {
       saveState();
       renderBracket();
       renderChampion();
+      renderThirdPlace();
       renderModal();
     }
 
@@ -974,6 +1253,7 @@
       saveState();
       renderBracket();
       renderChampion();
+      renderThirdPlace();
       document.getElementById('editNamesModal').classList.remove('active');
     }
 
@@ -1027,9 +1307,11 @@
           m.winnerId = null;
         }
       });
+      tournament.thirdPlace = null;
       saveState();
       renderBracket();
       renderChampion();
+      renderThirdPlace();
       document.getElementById('editPairsModal').classList.remove('active');
     }
 
@@ -1048,6 +1330,20 @@
       document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
     }
 
+    function printBracket() {
+      if (!tournament) return;
+      // Temporarily reset zoom for printing
+      const tree = document.getElementById('bracketTree');
+      const savedZoom = zoom;
+      tree.style.zoom = 1;
+      renderBracket();
+      setTimeout(() => {
+        window.print();
+        tree.style.zoom = savedZoom;
+        renderBracket();
+      }, 100);
+    }
+
     function exportBracket() {
       let text = `${tournament.name}\n${'='.repeat(tournament.name.length)}\n`;
       const numRounds = Math.log2(tournament.size);
@@ -1064,6 +1360,12 @@
           const mark = m.winnerId != null ? ' ✓' : '';
           text += `Матч ${m.id + 1}: ${p1} vs ${p2}${score}${mark}\n`;
         });
+      }
+
+      if (tournament.thirdPlace && tournament.thirdPlace.winnerId != null) {
+        const tp = tournament.thirdPlace;
+        const tpWinner = tp.winnerId === tp.player1.id ? tp.player1 : tp.player2;
+        text += `\n🥉 3-е место: ${tpWinner.name}\n`;
       }
 
       if (tournament.champion) text += `\n🏆 ЧЕМПИОН: ${tournament.champion.name}\n`;
