@@ -424,6 +424,7 @@
           <button class="btn btn-secondary btn-mini" onclick="changeZoom(-0.1)">➖</button>
           <span class="zoom-label" id="zoomLabel">100%</span>
           <button class="btn btn-secondary btn-mini" onclick="changeZoom(0.1)">➕</button>
+          <button class="btn btn-secondary" onclick="openEditNames()">✏️ Имена</button>
           <button class="btn btn-secondary" onclick="exportBracket()">📋 Экспорт</button>
           <button class="btn btn-secondary" onclick="resetTournament()">🔄 Новый турнир</button>
         </div>
@@ -437,6 +438,18 @@
         <div class="trophy">🏆</div>
         <h2>ЧЕМПИОН</h2>
         <p id="winnerName"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Names Modal -->
+  <div class="modal-overlay" id="editNamesModal">
+    <div class="modal">
+      <h3>✏️ Редактирование имён</h3>
+      <div class="modal-match-info">Измените имена игроков турнира</div>
+      <div class="players-list" id="editNamesList" style="max-height: 50vh;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-close" onclick="closeEditNames()">Закрыть</button>
       </div>
     </div>
   </div>
@@ -488,8 +501,14 @@
       document.getElementById('matchModal').addEventListener('click', e => {
         if (e.target.id === 'matchModal') closeMatchModal();
       });
+      document.getElementById('editNamesModal').addEventListener('click', e => {
+        if (e.target.id === 'editNamesModal') closeEditNames();
+      });
       document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closeMatchModal();
+        if (e.key === 'Escape') {
+          if (document.getElementById('editNamesModal').classList.contains('active')) closeEditNames();
+          else closeMatchModal();
+        }
       });
     }
 
@@ -896,6 +915,49 @@
         if (!t || !t.matches || !t.size) return null;
         return t;
       } catch (e) { return null; }
+    }
+
+    // ================= Edit Names =================
+    function openEditNames() {
+      if (!tournament) return;
+      const list = document.getElementById('editNamesList');
+      list.innerHTML = '';
+      tournament.players.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML = `
+          <span class="player-num">${i + 1}.</span>
+          <input type="text" class="edit-name-input" maxlength="24" value="${esc(p.name)}">
+          <input type="number" class="edit-seed-input" placeholder="№" min="1" max="${tournament.size}" value="${p.seed || ''}" title="Номер посева">
+        `;
+        list.appendChild(row);
+      });
+      document.getElementById('editNamesModal').classList.add('active');
+    }
+
+    function closeEditNames() {
+      // Save changes
+      const inputs = document.querySelectorAll('#editNamesList .edit-name-input');
+      const seeds = document.querySelectorAll('#editNamesList .edit-seed-input');
+      tournament.players.forEach((p, i) => {
+        p.name = inputs[i].value.trim() || p.name;
+        p.seed = seeds[i].value ? parseInt(seeds[i].value) : 0;
+      });
+      // Update all matches with player references
+      tournament.matches.forEach(m => {
+        if (m.player1) {
+          const p = tournament.players.find(x => x.id === m.player1.id);
+          if (p) m.player1 = p;
+        }
+        if (m.player2) {
+          const p = tournament.players.find(x => x.id === m.player2.id);
+          if (p) m.player2 = p;
+        }
+      });
+      saveState();
+      renderBracket();
+      renderChampion();
+      document.getElementById('editNamesModal').classList.remove('active');
     }
 
     // ================= Actions =================
