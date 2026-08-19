@@ -528,6 +528,7 @@
           <button class="btn btn-secondary" onclick="openEditPairs()">🔀 Пары</button>
           <button class="btn btn-secondary" onclick="exportBracket()">📋 Экспорт</button>
           <button class="btn btn-secondary" onclick="printBracket()">🖨 PDF</button>
+          <button class="btn btn-secondary" onclick="screenshotBracket()">📸 Скриншот</button>
           <button class="btn btn-secondary" onclick="resetTournament()">🔄 Новый турнир</button>
         </div>
       </div>
@@ -592,6 +593,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
     // ================= State =================
     const LS_KEY = 'tennisTournamentV2';
@@ -1354,6 +1356,33 @@
       zoom = Math.min(1.6, Math.max(0.4, Math.round((zoom + delta) * 10) / 10));
       document.getElementById('bracketTree').style.zoom = zoom;
       document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function screenshotBracket() {
+      if (!tournament) return;
+      const tree = document.getElementById('bracketTree');
+      const savedZoom = zoom;
+      tree.style.zoom = 1;
+      renderBracket();
+      setTimeout(() => {
+        html2canvas(tree, {
+          backgroundColor: '#0a1628',
+          scale: 2,
+          useCORS: true,
+          logging: false
+        }).then(canvas => {
+          const link = document.createElement('a');
+          link.download = `${tournament.name.replace(/\s+/g, '_')}_сетка.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          tree.style.zoom = savedZoom;
+          renderBracket();
+        }).catch(() => {
+          tree.style.zoom = savedZoom;
+          renderBracket();
+          alert('Не удалось сделать скриншот');
+        });
+      }, 200);
     }
 
     function printBracket() {
