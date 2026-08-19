@@ -425,6 +425,7 @@
           <span class="zoom-label" id="zoomLabel">100%</span>
           <button class="btn btn-secondary btn-mini" onclick="changeZoom(0.1)">➕</button>
           <button class="btn btn-secondary" onclick="openEditNames()">✏️ Имена</button>
+          <button class="btn btn-secondary" onclick="openEditPairs()">🔀 Пары</button>
           <button class="btn btn-secondary" onclick="exportBracket()">📋 Экспорт</button>
           <button class="btn btn-secondary" onclick="resetTournament()">🔄 Новый турнир</button>
         </div>
@@ -450,6 +451,18 @@
       <div class="players-list" id="editNamesList" style="max-height: 50vh;"></div>
       <div class="modal-actions">
         <button class="btn btn-close" onclick="closeEditNames()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Pairs Modal -->
+  <div class="modal-overlay" id="editPairsModal">
+    <div class="modal">
+      <h3>🔀 Редактирование пар</h3>
+      <div class="modal-match-info">Выберите, кто с кем играет в первом раунде</div>
+      <div class="players-list" id="editPairsList" style="max-height: 50vh;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-close" onclick="closeEditPairs()">Закрыть</button>
       </div>
     </div>
   </div>
@@ -504,9 +517,13 @@
       document.getElementById('editNamesModal').addEventListener('click', e => {
         if (e.target.id === 'editNamesModal') closeEditNames();
       });
+      document.getElementById('editPairsModal').addEventListener('click', e => {
+        if (e.target.id === 'editPairsModal') closeEditPairs();
+      });
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
           if (document.getElementById('editNamesModal').classList.contains('active')) closeEditNames();
+          else if (document.getElementById('editPairsModal').classList.contains('active')) closeEditPairs();
           else closeMatchModal();
         }
       });
@@ -958,6 +975,62 @@
       renderBracket();
       renderChampion();
       document.getElementById('editNamesModal').classList.remove('active');
+    }
+
+    // ================= Edit Pairs =================
+    function openEditPairs() {
+      if (!tournament) return;
+      const list = document.getElementById('editPairsList');
+      list.innerHTML = '';
+      const firstRound = tournament.matches.filter(m => m.round === 1).sort((a, b) => a.position - b.position);
+      firstRound.forEach((m, i) => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.style.flexDirection = 'column';
+        row.style.alignItems = 'stretch';
+        row.style.gap = '6px';
+        row.innerHTML = `
+          <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Матч ${i + 1}</div>
+          <select class="pair-select-p1" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(59,130,246,.15);background:rgba(0,0,0,.3);color:#fff;font-size:14px;outline:none;">
+            ${tournament.players.map(p => `<option value="${p.id}" ${m.player1 && m.player1.id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+          </select>
+          <div style="text-align:center;color:var(--text-dim);font-size:12px;">VS</div>
+          <select class="pair-select-p2" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(59,130,246,.15);background:rgba(0,0,0,.3);color:#fff;font-size:14px;outline:none;">
+            ${tournament.players.map(p => `<option value="${p.id}" ${m.player2 && m.player2.id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        `;
+        list.appendChild(row);
+      });
+      document.getElementById('editPairsModal').classList.add('active');
+    }
+
+    function closeEditPairs() {
+      const selects1 = document.querySelectorAll('#editPairsList .pair-select-p1');
+      const selects2 = document.querySelectorAll('#editPairsList .pair-select-p2');
+      const firstRound = tournament.matches.filter(m => m.round === 1).sort((a, b) => a.position - b.position);
+      firstRound.forEach((m, i) => {
+        const id1 = parseInt(selects1[i].value);
+        const id2 = parseInt(selects2[i].value);
+        m.player1 = tournament.players.find(p => p.id === id1) || null;
+        m.player2 = tournament.players.find(p => p.id === id2) || null;
+        m.games = [];
+        m.forcedWinner = null;
+        m.winnerId = null;
+      });
+      // Reset all later rounds
+      tournament.matches.forEach(m => {
+        if (m.round > 1) {
+          m.player1 = null;
+          m.player2 = null;
+          m.games = [];
+          m.forcedWinner = null;
+          m.winnerId = null;
+        }
+      });
+      saveState();
+      renderBracket();
+      renderChampion();
+      document.getElementById('editPairsModal').classList.remove('active');
     }
 
     // ================= Actions =================
